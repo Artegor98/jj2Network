@@ -1,0 +1,271 @@
+//All needed packets(TCP and UDP) are here,plan is below :)
+/* Universal functions:
+ * 1.ReadBetween - getBetween(string,start,end);
+ * 1.5 .Ulaznipodaci - ulaznipodaci(socket);
+ * 2.Jj2 serverlist - jj2list();
+ * 3.UDP checksum - UDPchecksum(buffer);
+ * 4.Disconnect Message - disconnectMessage(byte msg);
+ * 5.Forming recieved packet - receivedPacket(socket,myid,packet,names,chatlog);
+ * 
+ * TCP Part:
+ * 1.Connect - connect(NetworkStream); --->check UDPBind[0] and UDPBind[1].
+ * 2.Join - join(NetworkStream,Playername);
+ * 3.Chat - chat(NetowrkStream,Message,MyID);
+ * 4.Spectate on/off - spectate(NetworkStream,True/False); --->doesn't work cause it's connecting
+ * 
+ * UDP part:
+ * 1.SendPassword - sendPw(UdpClient,password,IP,port);
+ * 
+ */
+
+
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Net;
+using System.Net.Sockets;
+using System.IO;
+
+namespace LaZaRuS_Final
+{
+    class Jj2Network
+    {
+        //universal functions first:
+        private static readonly TcpClient _tcpClient;
+        public TcpClient client { get { return _tcpClient; } }
+        public static string getBetween(string strSource, string strStart, string strEnd)//Not really connected with Jj2,but very useful
+        {
+            int Start, End;
+            if (strSource.Contains(strStart) && strSource.Contains(strEnd))
+            {
+                Start = strSource.IndexOf(strStart, 0) + strStart.Length;
+                End = strSource.IndexOf(strEnd, Start);
+                return strSource.Substring(Start, End - Start);
+            }
+            else
+            {
+                return "";
+            }
+        }
+
+        public static string jj2list(string slist)// 2.Jj2 serverlist
+        {
+            TcpClient tcp = new TcpClient();
+            tcp.Connect(slist, 10057);
+            NetworkStream ns = tcp.GetStream();
+
+            byte[] bytes = new byte[tcp.ReceiveBufferSize];
+            ns.Read(bytes, 0, bytes.Length);
+            string list1 = Encoding.ASCII.GetString(bytes);
+            string list = list1.Replace("\0", string.Empty);
+            return list;
+        }
+        public static string locate(string ip) {
+            System.Net.WebClient wc = new System.Net.WebClient();
+            byte[] locationlol = wc.DownloadData("http://ip2c.org/?ip=" + ip);
+            string location123 = Encoding.ASCII.GetString(locationlol) + "*-*-xdlol";
+            string location12 = getBetween(location123, ";", "lol");
+            string location1 = getBetween(location12, ";", "xd");
+            string location = getBetween(location1, ";", "*-*-");
+            return location;
+        }
+        public static void UDPchecksum(byte[] buffer)//3.UDP checksum
+        {
+            int x = 1, y = 1;
+            for (int i = 2; i < buffer.Length; ++i)
+            {
+                x += buffer[i];
+                y += x;
+            }
+            buffer[0] = (byte)(x % 251);
+            buffer[1] = (byte)(y % 251);
+        }
+
+
+        /*---------------------TCP part now-----------------------*/
+
+        public static void connect(Socket sck)//1.Connect
+        {
+            Byte[] igrac = new Byte[] { 0x09, 0x0F, 0x3c, 0xfc, 0x32, 0x34, 0x20, 0x20, 0x01 };
+            sck.Send(igrac);
+        }
+        public static void ulaznipodaci(Socket sck) {//1.5 . Ulazni podaci
+            Byte[] ulaznipodaci = new Byte[] { 0x08, 0x3F, 0x20, 0x03, 0x00, 0x00, 0x05, 0x00 };//CHECK THIS DONT FORGET XD LOL
+            sck.Send(ulaznipodaci);
+        }
+        public static void Join(Socket sck, string playername1,byte myid)//2.Join
+        {
+            int plength = Convert.ToInt32(playername1.Length);
+            Byte[] playername = Encoding.ASCII.GetBytes(playername1);//playername in bytes
+            Byte[] joindetailspre = new Byte[] { (byte)(plength + 10), 0x0E, 0x01, myid, 0x01, 0x05, 0x99, 0x9F, 0x9F, 0x9F };
+            Byte[] join = new Byte[playername.Length + 10];//final infopacket
+
+            Array.Copy(joindetailspre, 0, join, 0, joindetailspre.Length);//forming packet
+            Array.Copy(playername, 0, join, joindetailspre.Length, playername.Length);
+          
+           sck.Send(join); 
+        }
+        public static void chat(Socket sck, string msg, byte myid)//3.Chat
+        {
+            try
+            {
+                int msglength = 3 + msg.Length;
+                Byte[] messagefinal = new Byte[msglength + 3];
+                Byte[] always = new Byte[] { 0x00, (byte)msglength, 0x00, 0x1B, myid, 0x00 };
+                Byte[] message = Encoding.ASCII.GetBytes(msg);
+                Array.Copy(always, 0, messagefinal, 0, always.Length);
+                Array.Copy(message, 0, messagefinal, always.Length, message.Length);
+                sck.Send(messagefinal);
+            }
+            catch { }
+        }
+        public static void spectate(Socket sck, Boolean onoff)//4.Spectate on/off
+        {
+            Byte[] spectateon = new Byte[] { 0x03, 0x42, 0x21 };
+            Byte[] spectateoff = new Byte[] { 0x03, 0x42, 0x20 };
+            if (onoff == true)
+            {
+                sck.Send(spectateon);
+            }
+            else
+            {
+                sck.Send(spectateoff);
+            }
+        }
+    
+        public static string disconnectMessage(byte msg) {//5.disconnect message
+            string message="Unknown reason.";
+            switch (msg) {
+                case 0x01: message = "Server is full";
+                    break;
+                case 0x02: message = "Version different";
+                    break;
+                case 0x04: message = "Error during handshaking";
+                    break;
+                case 0x05: message = "Feature not supported in shareware";
+                    break;
+                case 0x06: message="Error downloading level";
+                    break;
+                case 0x07: message = "Connection lost";
+                    break;
+                case 0x08: message = "Winsock error";
+                    break;
+                case 0x09: message = "Connection timed out";
+                    break;
+                case 0x0A: message = "Server stopped";
+                    break;
+                case 0x0B: message = "Kicked off";
+                    break;
+                case 0x0C: message = "Banned";
+                    break;
+                case 0x0D: message = "Denied";
+                    break;
+                case 0x0E: message = "Version of JJ2+ is different";
+                    break;
+                case 0x0F: message = "Server kicked you for idling";
+                    break;
+                case 0x10: message="No downloads allowed";
+                    break;
+                case 0x11: message = "Unauthorized file request";
+                    break;
+                case 0x12: message = "No splitscreeners allowed";
+                    break;
+                default: message = "Unknown error";
+                    break;
+            }
+            return message;
+        }
+        public static void receivedPacket(Socket socket,int myid,byte[] packet,string []names,string chatlog)//6.Recieved packet form
+        {
+            byte packetID = 0x00; int idigraca = 0; byte playeridh = (byte)33; byte discon = 0x00;
+            if(packet[0]==0){
+                packetID=packet[3];
+                playeridh=packet[3+2];
+                discon = packet[3 + 1];
+                
+            }
+            if(packet[0]!=0){
+                packetID=packet[1];
+                playeridh=packet[1+2];
+                discon=packet[1+1];
+            }
+
+            switch (packetID) {
+                case 0x12:
+                    
+                    names[idigraca]="";
+                    int i = 3;
+                    while(i+8<packet.Length)
+                    {
+                        int sockid = packet[i++];
+                        int playerid = packet[i++];
+
+                        int pchar = packet[i++];
+                        int pteam=packet[i++];
+
+                        int[] fur = new int[] { packet[i++],packet[i++],packet[i++],packet[i++]};
+
+                        while(packet[i]!=0)
+                        {
+                            names[idigraca] = names[idigraca] + Convert.ToChar(packet[i++]);
+                        }
+                        idigraca++;
+                    }
+                    break;
+                case 0x0D:
+                    if (myid == playeridh)
+                    {
+                        chatlog = chatlog + "You have been disconnected.Reason:" +disconnectMessage(discon);
+                    }
+                    else {
+                        chatlog = chatlog + names[playeridh] + " has been disconnected.";
+                    }
+                    break;
+                case 0x1B:
+                    int idchat = (int)packet[4];
+                    string msgpre = Encoding.ASCII.GetString(packet);
+                    string msg = msgpre.Substring(2);
+                    chatlog = chatlog + names[idchat] + " : " + msg ;
+                    break;
+                case 0x40:
+                    string msgprec = Encoding.ASCII.GetString(packet);
+                    string msgc = msgprec.Substring(3);
+                    chatlog = chatlog + "Console" + ":" + msgc;
+                    break;
+                case 0x11:
+                    string joinpre = Encoding.ASCII.GetString(packet);
+                    string join = joinpre.Substring(10);
+                    chatlog = chatlog + join + " has joined the game.";
+                    break;
+
+            }
+        }
+        
+
+        /* -------------------------------------UDP part--------------------------------------*/
+
+
+        public static void sendPw(Socket udp, string sifra,string ip,int port)//1.Send password
+        {
+            
+            Byte[] sifrab = Encoding.ASCII.GetBytes(sifra);//password in bytes
+            byte pwlength = (byte)sifrab.Length;//password length
+            Byte[] finalpacket = new Byte[4 + (int)pwlength];//preparing packet
+
+            byte[] prvideo = new byte[] { 0x00, 0x00, 0x0A, (byte)sifrab.Length };//first part of the packet
+            Array.Copy(prvideo, 0, finalpacket, 0, prvideo.Length);//forming packet
+            Array.Copy(sifrab, 0, finalpacket, prvideo.Length, sifrab.Length);
+
+            UDPchecksum(finalpacket);//checksumming...
+            EndPoint x=new IPEndPoint(IPAddress.Parse(ip),port);
+            udp.SendTo(finalpacket,x);//password sent
+
+        }
+        public static void keepAlive(Socket sck,byte[] receive){//was just testing,doesnt work
+            if (receive[2] == 0x09) {
+                sck.Send(receive);
+            }
+    }
+    }
+}

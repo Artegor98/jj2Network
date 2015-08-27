@@ -1,0 +1,13 @@
+ public static string locate(string ip) {
+            System.Net.WebClient wc = new System.Net.WebClient();
+            byte[] locationlol = wc.DownloadData("http://api.hackertarget.com/geoip/?q=" + ip);
+            string location123 = Encoding.ASCII.GetString(locationlol);
+            string country = getBetween(location123, "Country:", "State").Replace(Environment.NewLine,string.Empty);
+            string city = getBetween(location123, "City:", "Latitude").Replace(Environment.NewLine, string.Empty);
+            string forreturn = "";
+            if (city != "N/A") { forreturn = city; } else { forreturn = country; }
+            string longitude = getBetween(location123, "Latitude: ", "Longitude:");
+            int index = location123.IndexOf("Longitude:");
+            string latitude = location123.Substring(index);
+            return forreturn+" ["+latitude+" , "+longitude+" ]";
+        }
